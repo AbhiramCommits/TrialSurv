@@ -1,0 +1,14 @@
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user
+renv/library/
+renv/staging/
+*.rds
+*.Rcheck/
+*.tar.gz
+.install_logs/
+docs/
+!results/
+!figures/

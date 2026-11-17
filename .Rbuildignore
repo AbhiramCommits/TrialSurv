@@ -1,0 +1,14 @@
+^\.git$
+^\.github$
+^\.install_logs$
+^results$
+^figures$
+^report$
+^scripts$
+^_pkgdown\.yml$
+^docs$
+^renv$
+^renv\.lock$
+^LICENSE\.md$
+^README\.Rmd$
+^\.Rproj\.user$
