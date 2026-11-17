@@ -1,0 +1,2 @@
+"n_cells_power","n_sims_per_cell","n_cells_required_n","total_simulations","cores","runtime_power_sec","runtime_required_n_sec","runtime_total_sec","seed","test","alpha","pooled_type1","pooled_type1_mc_se"
+60,1000,4,96000,7,85.1003367900848,36.7318379878998,121.832174777985,20261117,"cox",0.05,0.0508333333333333,0.00200518713913763
