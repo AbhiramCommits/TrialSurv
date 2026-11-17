@@ -12,4 +12,5 @@
 ^renv\.lock$
 ^LICENSE\.md$
 ^README\.Rmd$
+^CONTRIBUTING\.md$
 ^\.Rproj\.user$

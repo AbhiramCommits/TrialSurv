@@ -1,0 +1,42 @@
+template:
+  bootstrap: 5
+
+reference:
+- title: Data
+  desc: Load, tidy and split trial data.
+  contents:
+  - load_trial_data
+  - trial_split
+
+- title: Frequentist survival analysis
+  desc: Kaplan-Meier curves, Cox models, diagnostics and discrimination.
+  contents:
+  - km_fit
+  - cox_fit
+  - cox_diagnostics
+  - concordance_eval
+  - plot_km
+  - plot_schoenfeld
+
+- title: Bayesian hierarchical survival analysis
+  desc: Partial borrowing across treatment subgroups and posterior summaries.
+  contents:
+  - bayes_surv_fit
+  - bayes_summary
+  - shrinkage_report
+  - bayes_concordance
+  - compare_models
+  - plot_posterior_hr
+  - plot_trace
+
+- title: Trial design simulation
+  desc: Power, type I error and sample-size search.
+  contents:
+  - simulate_trial
+  - trial_power
+  - required_n
+
+- title: Reporting
+  desc: Render the artifact-only GO/NO-GO report.
+  contents:
+  - render_report
