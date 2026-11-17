@@ -1,0 +1,2 @@
+"backend","formula","family","iterations_per_chain","chains","prior_scale","max_rhat","min_ess_bulk","min_ess_tail","n_divergent","fit_seconds","seed"
+"brms","time | cens(1 - status) ~ lev + f5 + age + sex + extent + differ +      obstruct + stratum + (0 + f5 || stratum)","weibull",4000,4,0.5,1.00095110247451,3310.53795150774,3533.01612400997,0,269.802623987198,20261117

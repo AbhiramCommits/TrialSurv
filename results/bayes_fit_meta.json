@@ -1,0 +1,21 @@
+{
+  "backend": "brms",
+  "family": "weibull",
+  "formula": "time | cens(1 - status) ~ lev + f5 + age + sex + extent + differ +      obstruct + stratum + (0 + f5 || stratum)",
+  "subgroup": "rx",
+  "stratum": ".nodal_stratum",
+  "prior_scale": 0.5,
+  "iter": 4000,
+  "chains": 4,
+  "seed": 20261117,
+  "adapt_delta_attempts": {
+    "attempt": 1,
+    "adapt_delta": 0.95,
+    "n_divergent": 0,
+    "max_rhat": 1.05432550295335,
+    "seconds": 269.29150390625
+  },
+  "max_rhat": 1.00095110247451,
+  "min_ess_bulk": 3310.53795150774,
+  "n_divergent": 0
+}

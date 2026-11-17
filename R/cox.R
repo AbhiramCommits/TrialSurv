@@ -246,11 +246,23 @@ cox_diagnostics <- function(fit, alpha = 0.05, outlier_threshold = 3) {
 #'
 #' @export
 concordance_eval <- function(fit, newdata, conf.int = 0.95) {
-  if (inherits(fit, "trialsurv_cox")) fit <- fit$adjusted
+  endpoint <- "death"
+  if (inherits(fit, "trialsurv_cox")) {
+    endpoint <- fit$endpoint
+    fit <- fit$adjusted
+  }
   if (!inherits(fit, "coxph")) {
     rlang::abort("`fit` must be a coxph or trialsurv_cox object.",
       class = "trialsurv_input_error"
     )
+  }
+  if ("endpoint" %in% names(newdata)) {
+    newdata <- newdata[newdata$endpoint == endpoint, , drop = FALSE]
+  }
+  if (nrow(newdata) == 0L) {
+    rlang::abort(sprintf("No rows for endpoint %s in `newdata`.",
+      encodeString(endpoint, quote = "\"")
+    ), class = "trialsurv_input_error")
   }
   assert_surv_inputs(newdata)
 

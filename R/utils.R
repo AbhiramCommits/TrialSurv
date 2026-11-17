@@ -144,4 +144,6 @@ fig_save <- function(plot, name, dir = "figures", width = 8, height = 6, dpi = 3
 }
 
 # Column names used inside tidy-evaluation data masks.
-utils::globalVariables(c("time", ".data"))
+utils::globalVariables(c(
+  "time", ".data", "arm", "parameter", "value", "iteration", "subgroup"
+))

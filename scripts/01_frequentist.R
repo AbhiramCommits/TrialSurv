@@ -28,25 +28,12 @@ write_result(
 )
 
 # ---- Reproducible stratified 70/30 split of patients -----------------------
-death <- dat[dat$endpoint == "death", , drop = FALSE]
-set.seed(20261117)
-key <- interaction(death$rx, death$status, drop = TRUE)
-train_rows <- unlist(lapply(split(seq_len(nrow(death)), key), function(i) {
-  sample(i, size = floor(0.7 * length(i)))
-}), use.names = FALSE)
-train_ids <- death$id[train_rows]
-train <- dat[dat$id %in% train_ids, , drop = FALSE]
-test <- dat[!dat$id %in% train_ids, , drop = FALSE]
+sp <- trial_split(dat, prop = 0.7, seed = 20261117, endpoint = "death")
+train <- sp$train
+test <- sp$test
 test_death <- test[test$endpoint == "death", , drop = FALSE]
 
-split_summary <- tibble::tibble(
-  set = c("train", "test"),
-  n_patients = c(length(unique(train$id)), length(unique(test$id))),
-  n_death_events = c(
-    sum(train$status[train$endpoint == "death"]),
-    sum(test_death$status)
-  )
-)
+split_summary <- dplyr::rename(sp$summary, n_death_events = n_events)
 write_result(split_summary, "split_summary")
 cat("\nSplit:\n")
 print(as.data.frame(split_summary), row.names = FALSE)
