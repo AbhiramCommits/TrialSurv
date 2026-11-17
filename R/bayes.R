@@ -125,7 +125,8 @@ bayes_surv_fit <- function(data,
   }
   if (is.null(cores)) cores <- chains
 
-  prep <- .prepare_bayes_data(data, subgroup = subgroup, stratum = stratum,
+  prep <- .prepare_bayes_data(data,
+    subgroup = subgroup, stratum = stratum,
     covariates = covariates, pool = pool
   )
   d <- prep$data
@@ -244,7 +245,8 @@ bayes_surv_fit <- function(data,
     rlang::abort("No death-endpoint rows in `data`.", class = "trialsurv_input_error")
   }
   d <- as.data.frame(d)
-  assert_surv_inputs(d, vars = unique(c(subgroup, covariates,
+  assert_surv_inputs(d, vars = unique(c(
+    subgroup, covariates,
     if (!is.null(stratum)) stratum else "nodes"
   )))
   d <- d[stats::complete.cases(d[, unique(c(
@@ -484,7 +486,8 @@ bayes_surv_fit <- function(data,
   # and the mean subgroup deviation are identified separately.
   centre_z <- function(z) {
     zm <- matrix(z, nrow = n_strata, ncol = n_arms)
-    zm <- zm - matrix(colMeans(zm), nrow = n_strata, ncol = n_arms,
+    zm <- zm - matrix(colMeans(zm),
+      nrow = n_strata, ncol = n_arms,
       byrow = TRUE
     )
     as.vector(zm)
@@ -678,7 +681,8 @@ bayes_surv_fit <- function(data,
   if (length(hr_list) == 0L) {
     return(NULL)
   }
-  out <- array(NA_real_, dim = c(it, ch, length(hr_list)),
+  out <- array(NA_real_,
+    dim = c(it, ch, length(hr_list)),
     dimnames = list(NULL, NULL, names(hr_list))
   )
   for (nm in names(hr_list)) out[, , nm] <- hr_list[[nm]]
@@ -853,21 +857,24 @@ shrinkage_report <- function(fit, freq_fit) {
 
     for (s in prep$stratum_levels) {
       ds <- d[d$stratum == s, , drop = FALSE]
-      standalone <- tryCatch({
-        fs <- survival::coxph(
-          survival::Surv(time, status) ~ subgroup,
-          data = transform(ds, subgroup = ds[[prep$subgroup]]),
-          ties = "efron"
-        )
-        cf <- stats::coef(fs)
-        se <- sqrt(diag(stats::vcov(fs)))
-        nm <- paste0("subgroup", arms$level[j])
-        if (nm %in% names(cf)) {
-          c(log_hr = as.numeric(cf[[nm]]), se = as.numeric(se[[nm]]))
-        } else {
-          c(log_hr = NA_real_, se = NA_real_)
-        }
-      }, error = function(e) c(log_hr = NA_real_, se = NA_real_))
+      standalone <- tryCatch(
+        {
+          fs <- survival::coxph(
+            survival::Surv(time, status) ~ subgroup,
+            data = transform(ds, subgroup = ds[[prep$subgroup]]),
+            ties = "efron"
+          )
+          cf <- stats::coef(fs)
+          se <- sqrt(diag(stats::vcov(fs)))
+          nm <- paste0("subgroup", arms$level[j])
+          if (nm %in% names(cf)) {
+            c(log_hr = as.numeric(cf[[nm]]), se = as.numeric(se[[nm]]))
+          } else {
+            c(log_hr = NA_real_, se = NA_real_)
+          }
+        },
+        error = function(e) c(log_hr = NA_real_, se = NA_real_)
+      )
 
       pooled_par <- paste0("hr_", dummy, "_", s)
       pooled_draws <- log(as.numeric(hr_arr[, , pooled_par]))
@@ -968,7 +975,8 @@ bayes_concordance <- function(fit, newdata, n_draws = 200L) {
 
   if (identical(fit$backend, "brms")) {
     lp <- brms::posterior_linpred(
-      fit$fit, newdata = prep_nd$data, re_formula = NULL,
+      fit$fit,
+      newdata = prep_nd$data, re_formula = NULL,
       transform = FALSE
     )
     risk <- -as.matrix(lp)
@@ -1046,7 +1054,8 @@ bayes_concordance <- function(fit, newdata, n_draws = 200L) {
   X <- stats::model.matrix(prep$fixed_formula, data = nd)
   missing_cols <- setdiff(colnames(prep$X), colnames(X))
   if (length(missing_cols) > 0L) {
-    add <- matrix(0, nrow = nrow(X), ncol = length(missing_cols),
+    add <- matrix(0,
+      nrow = nrow(X), ncol = length(missing_cols),
       dimnames = list(NULL, missing_cols)
     )
     X <- cbind(X, add)

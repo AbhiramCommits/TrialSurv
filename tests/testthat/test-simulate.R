@@ -14,10 +14,12 @@ test_that("simulate_trial() respects the design and produces censoring", {
 })
 
 test_that("event rate increases as the hazard ratio decreases", {
-  d1 <- simulate_trial(2000, hr = 1.0, accrual_months = 24,
+  d1 <- simulate_trial(2000,
+    hr = 1.0, accrual_months = 24,
     followup_months = 24, dropout_rate = 0, median_control = 24, seed = 2
   )
-  d2 <- simulate_trial(2000, hr = 0.5, accrual_months = 24,
+  d2 <- simulate_trial(2000,
+    hr = 0.5, accrual_months = 24,
     followup_months = 24, dropout_rate = 0, median_control = 24, seed = 2
   )
   expect_gt(mean(d1$status), mean(d2$status))

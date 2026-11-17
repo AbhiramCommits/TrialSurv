@@ -47,3 +47,23 @@ test_that("km_fit() computes a log-rank test and supports the overall curve", {
   expect_equal(overall$median$arm, "Overall")
   expect_true(is.na(overall$logrank$p_value))
 })
+
+test_that("plot_km() returns a plot object", {
+  skip_if_not_installed("ggsurvfit")
+  d <- load_trial_data()
+  p <- plot_km(d, by = "rx", endpoint = "death", save = FALSE)
+  expect_true(inherits(p, "ggplot") || inherits(p, "patchwork"))
+})
+
+test_that("plot_km() saves a figure when requested", {
+  skip_if_not_installed("ggsurvfit")
+  d <- load_trial_data()
+  tmp <- tempfile("trialsurv-km-")
+  dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  plot_km(d,
+    by = "rx", endpoint = "death", save = TRUE,
+    dir = tmp, name = "km.png"
+  )
+  expect_true(file.exists(file.path(tmp, "km.png")))
+})

@@ -75,7 +75,8 @@ utils::write.csv(timing_csv, "results/stage_runtimes.csv", row.names = FALSE)
 
 cat("\n===== Pipeline complete =====\n")
 print(timing_tbl, row.names = FALSE)
-cat(sprintf("Total runtime: %.1f seconds (%.1f minutes)\n",
+cat(sprintf(
+  "Total runtime: %.1f seconds (%.1f minutes)\n",
   sum(timing_tbl$seconds), sum(timing_tbl$seconds) / 60
 ))
 cat("Wrote results/session_info.txt and results/stage_runtimes.csv\n")

@@ -47,3 +47,16 @@ test_that("the split is stratified by arm and event status", {
   }
   expect_equal(sum(sp$summary$n_patients), length(unique(d$id)))
 })
+
+test_that("trial_split() validates its inputs", {
+  d <- load_trial_data()
+  expect_error(trial_split(d, prop = 1), class = "trialsurv_input_error")
+  expect_error(trial_split(d, seed = "x"), class = "trialsurv_input_error")
+  expect_error(trial_split(d[, setdiff(names(d), "rx")]),
+    class = "trialsurv_input_error"
+  )
+  expect_error(trial_split(d[0, ]), class = "trialsurv_input_error")
+
+  bad <- rbind(d, d[d$endpoint == "death", ][1, ])
+  expect_error(trial_split(bad), class = "trialsurv_input_error")
+})

@@ -32,7 +32,8 @@ grid$median_control <- 60
 
 t0 <- Sys.time()
 power <- trial_power(
-  grid, n_sims = 1000, test = "cox", cores = cores, seed = 20261117
+  grid,
+  n_sims = 1000, test = "cox", cores = cores, seed = 20261117
 )
 grid_runtime <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 write_result(power, "power_curve")

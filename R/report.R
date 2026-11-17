@@ -11,6 +11,10 @@
 #' @param input Path to the `.qmd` file. Defaults to
 #'   `file.path(output_dir, "trial_report.qmd")`.
 #' @param quiet Passed to [quarto::quarto_render()].
+#' @param results_dir Directory containing the result files checked before
+#'   rendering.
+#' @param figures_dir Directory containing the figures checked before
+#'   rendering.
 #'
 #' @return The path to the rendered HTML file, invisibly.
 #'
@@ -20,7 +24,8 @@
 #' }
 #'
 #' @export
-render_report <- function(output_dir = "report", input = NULL, quiet = TRUE) {
+render_report <- function(output_dir = "report", input = NULL, quiet = TRUE,
+                          results_dir = "results", figures_dir = "figures") {
   if (!requireNamespace("quarto", quietly = TRUE)) {
     rlang::abort(
       "Package 'quarto' is required to render the report.",
@@ -34,7 +39,7 @@ render_report <- function(output_dir = "report", input = NULL, quiet = TRUE) {
       class = "trialsurv_report_error"
     )
   }
-  .check_report_inputs()
+  .check_report_inputs(results_dir, figures_dir)
   html <- file.path(output_dir, sub("\\.qmd$", ".html", basename(input)))
   quarto::quarto_render(
     input = input,

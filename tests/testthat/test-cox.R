@@ -64,3 +64,20 @@ test_that("concordance_eval() is in a sensible range for informative covariates"
   expect_lt(cc$c_index, 1)
   expect_true(cc$conf.low <= cc$c_index && cc$c_index <= cc$conf.high)
 })
+
+test_that("plot_schoenfeld() returns a ggplot", {
+  d <- load_trial_data()
+  cx <- cox_fit(d, endpoint = "death")
+  p <- plot_schoenfeld(cx, save = FALSE)
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("plot_schoenfeld() saves a figure when requested", {
+  d <- load_trial_data()
+  cx <- cox_fit(d, endpoint = "death")
+  tmp <- tempfile("trialsurv-sch-")
+  dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  plot_schoenfeld(cx, save = TRUE, dir = tmp, name = "schoenfeld.png")
+  expect_true(file.exists(file.path(tmp, "schoenfeld.png")))
+})

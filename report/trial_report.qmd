@@ -63,8 +63,13 @@ sim_meta <- read.csv(res_path("simulation_meta.csv"), stringsAsFactors = FALSE)
 
 fmt <- function(x, d = 2) formatC(x, format = "f", digits = d)
 fmt_p <- function(p) {
-  if (is.na(p)) "not available" else if (p < 0.001) "< 0.001" else
+  if (is.na(p)) {
+    "not available"
+  } else if (p < 0.001) {
+    "< 0.001"
+  } else {
     formatC(p, format = "f", digits = 3)
+  }
 }
 pct <- function(x, d = 1) paste0(formatC(100 * x, format = "f", digits = d), "%")
 months <- function(x) {
@@ -155,7 +160,8 @@ km_table$`Median upper` <- ifelse(is.na(km_table$`Median upper`), "",
 km_table$`5-year survival` <- pct(km_table$`5-year survival`)
 km_table$`5-year lower` <- pct(km_table$`5-year lower`)
 km_table$`5-year upper` <- pct(km_table$`5-year upper`)
-knitr::kable(km_table, align = "lrrrrrccc", row.names = FALSE,
+knitr::kable(km_table,
+  align = "lrrrrrccc", row.names = FALSE,
   caption = "Kaplan-Meier summary by arm, death endpoint."
 )
 ```

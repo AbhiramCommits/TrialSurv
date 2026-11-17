@@ -23,8 +23,10 @@
 #'   `dropout_time`, `admin_time` and `accrual_time`.
 #'
 #' @examples
-#' d <- simulate_trial(150, hr = 0.7, accrual_months = 12,
-#'   followup_months = 24, dropout_rate = 0.1, median_control = 24, seed = 1)
+#' d <- simulate_trial(150,
+#'   hr = 0.7, accrual_months = 12,
+#'   followup_months = 24, dropout_rate = 0.1, median_control = 24, seed = 1
+#' )
 #' mean(d$status)
 #'
 #' @export
@@ -124,8 +126,10 @@ simulate_trial <- function(n_per_arm, hr, accrual_months, followup_months,
 #'   seconds is attached as `attr(x, "runtime")`.
 #'
 #' @examples
-#' grid <- data.frame(n_per_arm = c(100, 200), hr = c(1, 0.6),
-#'   dropout_rate = 0)
+#' grid <- data.frame(
+#'   n_per_arm = c(100, 200), hr = c(1, 0.6),
+#'   dropout_rate = 0
+#' )
 #' trial_power(grid, n_sims = 100, test = "logrank", cores = 1, seed = 1)
 #'
 #' @export
@@ -332,7 +336,8 @@ required_n <- function(target_power = 0.8, hr, n_range = c(
   grid$followup_months <- followup_months
   grid$median_control <- median_control
   search <- trial_power(
-    grid, n_sims = n_sims, test = test, cores = cores,
+    grid,
+    n_sims = n_sims, test = test, cores = cores,
     seed = seed, alpha = alpha
   )
   search <- search[order(search$n_per_arm), , drop = FALSE]

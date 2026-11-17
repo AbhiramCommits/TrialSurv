@@ -66,6 +66,11 @@ test_that("the fallback sampler fits the hierarchical model", {
   expect_true(all(is.finite(bs$rhat[bs$parameter %in% c("b_lev", "b_f5", "shape")])))
   expect_true(all(bs$ess_bulk[bs$parameter %in% c("b_lev", "b_f5", "shape")] > 0))
   expect_true(is.finite(attr(bs, "max_rhat")))
+
+  p_hr <- plot_posterior_hr(fit, save = FALSE)
+  expect_s3_class(p_hr, "ggplot")
+  p_trace <- plot_trace(fit, save = FALSE)
+  expect_s3_class(p_trace, "ggplot")
 })
 
 test_that("shrinkage_report() quantifies movement toward the global effect", {
@@ -118,6 +123,10 @@ test_that("the brms backend fits the same hierarchical model", {
   skip_on_ci()
   skip_if_not_installed("brms")
   skip_if_not_installed("rstan")
+  skip_if(
+    Sys.getenv("TRIALSURV_TEST_BRMS") != "true",
+    "Stan smoke test is opt-in; set TRIALSURV_TEST_BRMS=true"
+  )
   d <- .sim_bayes_data(n = 180, seed = 5, tau = 0.4)
   fit <- bayes_surv_fit(
     d,
@@ -129,4 +138,56 @@ test_that("the brms backend fits the same hierarchical model", {
   bs <- bayes_summary(fit)
   expect_true(any(bs$type == "hazard_ratio"))
   expect_true(all(is.finite(bs$rhat[bs$parameter %in% c("b_lev", "b_f5", "shape")])))
+
+  cmp <- compare_models(cox_fit(d, endpoint = "death"), fit, d)
+  expect_equal(nrow(cmp), 2L)
+})
+
+test_that("bayes_surv_fit() validates arguments and supports pooling all arms", {
+  skip_if_not_installed("posterior")
+  d <- .sim_bayes_data(n = 150, seed = 7, tau = 0.4)
+
+  expect_error(bayes_surv_fit(d, prior_scale = 0),
+    class = "trialsurv_input_error"
+  )
+  expect_error(bayes_surv_fit(d, iter = 50), class = "trialsurv_input_error")
+  expect_error(bayes_surv_fit(d, chains = 0), class = "trialsurv_input_error")
+  expect_error(
+    bayes_surv_fit(d, formula = time ~ 1, backend = "mcmc"),
+    class = "trialsurv_input_error"
+  )
+  expect_error(bayes_surv_fit(d[0, ]), class = "trialsurv_input_error")
+  expect_error(bayes_surv_fit(d, stratum = "not_a_column"),
+    class = "trialsurv_input_error"
+  )
+  expect_error(bayes_summary(list()), class = "trialsurv_input_error")
+
+  fake <- structure(list(hr_draws = NULL), class = c("trialsurv_bayes", "list"))
+  expect_error(shrinkage_report(fake, NULL), class = "trialsurv_input_error")
+  expect_error(plot_posterior_hr(fake), class = "trialsurv_input_error")
+  expect_error(compare_models(1, fake, d), class = "trialsurv_input_error")
+
+  fit_all <- bayes_surv_fit(
+    d,
+    iter = 600, chains = 2, seed = 8, backend = "mcmc",
+    cores = 2, prior_scale = 0.5, pool = "all"
+  )
+  expect_true(all(fit_all$prep$arms$pooled))
+  bs_all <- bayes_summary(fit_all)
+  expect_true(any(grepl("^hr_lev_", bs_all$parameter)))
+  expect_true(any(grepl("^hr_f5_", bs_all$parameter)))
+})
+
+test_that("compare_models() accepts a plain coxph fit", {
+  skip_if_not_installed("posterior")
+  d <- .sim_bayes_data(n = 200, seed = 9, tau = 0.4)
+  fit <- bayes_surv_fit(
+    d,
+    iter = 600, chains = 2, seed = 10, backend = "mcmc",
+    cores = 2, prior_scale = 0.5
+  )
+  cx <- cox_fit(d, endpoint = "death")
+  cmp <- compare_models(cx$adjusted, fit, d)
+  expect_equal(nrow(cmp), 2L)
+  expect_setequal(cmp$model, c("frequentist", "bayesian"))
 })

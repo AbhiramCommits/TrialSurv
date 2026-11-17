@@ -260,7 +260,8 @@ concordance_eval <- function(fit, newdata, conf.int = 0.95) {
     newdata <- newdata[newdata$endpoint == endpoint, , drop = FALSE]
   }
   if (nrow(newdata) == 0L) {
-    rlang::abort(sprintf("No rows for endpoint %s in `newdata`.",
+    rlang::abort(sprintf(
+      "No rows for endpoint %s in `newdata`.",
       encodeString(endpoint, quote = "\"")
     ), class = "trialsurv_input_error")
   }

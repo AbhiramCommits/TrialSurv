@@ -4,7 +4,13 @@
 \alias{render_report}
 \title{Render the TrialSurv go/no-go Quarto report}
 \usage{
-render_report(output_dir = "report", input = NULL, quiet = TRUE)
+render_report(
+  output_dir = "report",
+  input = NULL,
+  quiet = TRUE,
+  results_dir = "results",
+  figures_dir = "figures"
+)
 }
 \arguments{
 \item{output_dir}{Directory containing the Quarto template and receiving
@@ -14,6 +20,12 @@ the rendered HTML.}
 \code{file.path(output_dir, "trial_report.qmd")}.}
 
 \item{quiet}{Passed to \code{\link[quarto:quarto_render]{quarto::quarto_render()}}.}
+
+\item{results_dir}{Directory containing the result files checked before
+rendering.}
+
+\item{figures_dir}{Directory containing the figures checked before
+rendering.}
 }
 \value{
 The path to the rendered HTML file, invisibly.

@@ -158,7 +158,8 @@ plot_trace <- function(fit, name = "trace.png", dir = "figures", save = TRUE) {
   arm_labels <- stats::setNames(fit$prep$arms$level, fit$prep$arms$dummy)
   for (j in seq_len(nrow(fit$prep$arms))) {
     old <- paste0("hr_", fit$prep$arms$dummy[j], "_global")
-    new <- paste0(arm_labels[[fit$prep$arms$dummy[j]]], " vs ",
+    new <- paste0(
+      arm_labels[[fit$prep$arms$dummy[j]]], " vs ",
       fit$prep$ref_arm, " (log HR)"
     )
     df$parameter[df$parameter == old] <- new
@@ -166,8 +167,10 @@ plot_trace <- function(fit, name = "trace.png", dir = "figures", save = TRUE) {
 
   p <- ggplot2::ggplot(
     df,
-    ggplot2::aes(x = .data$iteration, y = .data$value,
-      colour = factor(.data$chain))
+    ggplot2::aes(
+      x = .data$iteration, y = .data$value,
+      colour = factor(.data$chain)
+    )
   ) +
     ggplot2::geom_line(linewidth = 0.25, alpha = 0.75) +
     ggplot2::facet_wrap(~parameter, scales = "free_y", ncol = 1) +

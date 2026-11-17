@@ -1,5 +1,6 @@
 ^\.git$
 ^\.github$
+^\.lintr$
 ^\.install_logs$
 ^results$
 ^figures$

@@ -48,8 +48,10 @@ experimental arm, administrative censoring at the analysis date and
 independent random dropout. Event times are in months.
 }
 \examples{
-d <- simulate_trial(150, hr = 0.7, accrual_months = 12,
-  followup_months = 24, dropout_rate = 0.1, median_control = 24, seed = 1)
+d <- simulate_trial(150,
+  hr = 0.7, accrual_months = 12,
+  followup_months = 24, dropout_rate = 0.1, median_control = 24, seed = 1
+)
 mean(d$status)
 
 }

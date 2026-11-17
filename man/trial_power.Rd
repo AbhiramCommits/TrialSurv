@@ -42,8 +42,10 @@ observed events and mean estimated hazard ratio for each cell. At
 \code{hr = 1} the rejection rate is the empirical type I error rate.
 }
 \examples{
-grid <- data.frame(n_per_arm = c(100, 200), hr = c(1, 0.6),
-  dropout_rate = 0)
+grid <- data.frame(
+  n_per_arm = c(100, 200), hr = c(1, 0.6),
+  dropout_rate = 0
+)
 trial_power(grid, n_sims = 100, test = "logrank", cores = 1, seed = 1)
 
 }
