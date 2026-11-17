@@ -13,7 +13,7 @@
     "adapt_delta": 0.95,
     "n_divergent": 0,
     "max_rhat": 1.05432550295335,
-    "seconds": 269.29150390625
+    "seconds": 252.329191923141
   },
   "max_rhat": 1.00095110247451,
   "min_ess_bulk": 3310.53795150774,

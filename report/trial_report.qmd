@@ -1,0 +1,317 @@
+---
+title: "TrialSurv evidence review"
+subtitle: "Adjuvant chemotherapy for resected colon cancer: a time-to-event re-analysis"
+author: "TrialSurv analysis team"
+date: "2026-11-17"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    embed-resources: true
+    theme: cosmo
+    code-fold: true
+    fig-cap-location: bottom
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+
+root <- if (dir.exists("results")) "." else ".."
+res_path <- function(f) file.path(root, "results", f)
+fig_path <- function(f) file.path(root, "figures", f)
+
+required_results <- c(
+  "cohort_summary.csv", "km_summary.csv", "cox_hazard_ratios.csv",
+  "ph_diagnostics.csv", "concordance_frequentist.csv",
+  "bayes_posterior_summary.csv", "shrinkage_report.csv",
+  "model_comparison.csv", "bayes_convergence.csv", "power_curve.csv",
+  "type1_error.csv", "sample_size_vs_schoenfeld.csv", "simulation_meta.csv"
+)
+missing_results <- required_results[!file.exists(res_path(required_results))]
+if (length(missing_results) > 0) {
+  stop("Missing required results file(s): ", paste(missing_results, collapse = ", "))
+}
+required_figures <- c("km_by_arm.png", "schoenfeld.png", "posterior_hr.png", "power_curves.png")
+missing_figures <- required_figures[!file.exists(fig_path(required_figures))]
+if (length(missing_figures) > 0) {
+  stop("Missing required figure(s): ", paste(missing_figures, collapse = ", "))
+}
+
+cohort <- read.csv(res_path("cohort_summary.csv"), stringsAsFactors = FALSE)
+km <- read.csv(res_path("km_summary.csv"), stringsAsFactors = FALSE)
+cox <- read.csv(res_path("cox_hazard_ratios.csv"), stringsAsFactors = FALSE)
+ph <- read.csv(res_path("ph_diagnostics.csv"), stringsAsFactors = FALSE)
+conc <- read.csv(res_path("concordance_frequentist.csv"), stringsAsFactors = FALSE)
+bayes <- read.csv(res_path("bayes_posterior_summary.csv"), stringsAsFactors = FALSE)
+shrink <- read.csv(res_path("shrinkage_report.csv"), stringsAsFactors = FALSE)
+cmp <- read.csv(res_path("model_comparison.csv"), stringsAsFactors = FALSE)
+conv <- read.csv(res_path("bayes_convergence.csv"), stringsAsFactors = FALSE)
+power <- read.csv(res_path("power_curve.csv"), stringsAsFactors = FALSE)
+type1 <- read.csv(res_path("type1_error.csv"), stringsAsFactors = FALSE)
+req <- read.csv(res_path("sample_size_vs_schoenfeld.csv"), stringsAsFactors = FALSE)
+sim_meta <- read.csv(res_path("simulation_meta.csv"), stringsAsFactors = FALSE)
+
+fmt <- function(x, d = 2) formatC(x, format = "f", digits = d)
+fmt_p <- function(p) {
+  if (is.na(p)) "not available" else if (p < 0.001) "< 0.001" else
+    formatC(p, format = "f", digits = 3)
+}
+pct <- function(x, d = 1) paste0(formatC(100 * x, format = "f", digits = d), "%")
+months <- function(x) {
+  if (is.na(x)) "not reached" else paste0(formatC(x, format = "f", digits = 1), " months")
+}
+count <- function(x) formatC(x, format = "f", digits = 0, big.mark = ",")
+
+coh <- cohort[cohort$endpoint == "death", ]
+n_patients <- coh$n[1]
+n_events <- coh$n_events[1]
+median_fu <- coh$median_followup[1]
+
+km_obs <- km[km$arm == "Obs", ]
+km_lev <- km[km$arm == "Lev", ]
+km_5fu <- km[km$arm == "Lev+5FU", ]
+logrank_p <- km$logrank_p[1]
+logrank_chisq <- km$logrank_chisq[1]
+
+cox_un <- cox[cox$model == "unadjusted" & cox$term == "rxLev+5FU", ]
+cox_adj <- cox[cox$model == "adjusted" & cox$term == "rxLev+5FU", ]
+cox_lev <- cox[cox$model == "adjusted" & cox$term == "rxLev", ]
+
+ph_global <- ph[ph$term == "GLOBAL", ]
+ph_treat <- ph[ph$term == "rxLev+5FU", ]
+ph_viol <- ph[ph$ph_violation %in% TRUE, ]
+
+bayes_hr <- bayes[bayes$type == "hazard_ratio", ]
+f5_global <- bayes_hr[bayes_hr$parameter == "hr_f5_global", ]
+lev_global <- bayes_hr[bayes_hr$parameter == "hr_lev_global", ]
+f5_sub <- bayes_hr[grepl("^hr_f5_", bayes_hr$parameter) &
+  !grepl("global", bayes_hr$parameter), ]
+
+cmp_f <- cmp[cmp$model == "frequentist", ]
+cmp_b <- cmp[cmp$model == "bayesian", ]
+
+type1_pool <- type1[type1$scope == "pooled", ]
+req_07_20 <- req[req$hr == 0.7 & req$dropout_rate == 0.2, ]
+req_08_20 <- req[req$hr == 0.8 & req$dropout_rate == 0.2, ]
+req_07_00 <- req[req$hr == 0.7 & req$dropout_rate == 0, ]
+req_08_00 <- req[req$hr == 0.8 & req$dropout_rate == 0, ]
+
+survival_gain <- km_5fu$surv_60m - km_obs$surv_60m
+
+recommendation <- dplyr::case_when(
+  cox_adj$conf.high < 1 & f5_global$q97.5 < 1 & ph_global$p_value < 0.05 ~
+    "GO-WITH-MODIFICATION",
+  cox_adj$conf.high < 1 & f5_global$q97.5 < 1 ~ "GO",
+  TRUE ~ "NO-GO"
+)
+```
+
+# Executive summary
+
+This independent re-analysis of the colon cancer adjuvant chemotherapy trial data distributed with the survival package (Moertel et al., 1990) includes **`r n_patients` patients** with **`r n_events` deaths** and a median follow-up of **`r fmt(median_fu, 1)` months**. Adding levamisole plus fluorouracil (Lev+5FU) to surgery was associated with better overall survival than observation: the adjusted hazard ratio was **`r fmt(cox_adj$hr, 2)` (95% CI `r fmt(cox_adj$conf.low, 2)` to `r fmt(cox_adj$conf.high, 2)`)** and 5-year survival was **`r pct(km_5fu$surv_60m)` versus `r pct(km_obs$surv_60m)`** (log-rank p = `r fmt_p(logrank_p)`). The Bayesian hierarchical model, which partially borrows information across four nodal-risk strata, gave a global hazard ratio of **`r fmt(f5_global$mean, 2)` (95% credible interval `r fmt(f5_global$q2.5, 2)` to `r fmt(f5_global$q97.5, 2)`)** and converged cleanly (maximum R-hat `r fmt(conv$max_rhat[1], 4)`, zero divergences). The treatment effect is consistent in direction across nodal strata, but the proportional hazards assumption is not globally satisfied. The recommendation is **`r recommendation`**: proceed, but with a pre-specified proportional-hazards-robust analysis and a sample size justified by simulation.
+
+# What we measured
+
+The analysis follows patients from surgery until one of two **time-to-event endpoints** occurs: cancer recurrence or death. For each patient we know either the time the event happened, or the time they were last known to be event-free. The latter is **censoring**: the patient did not have the event during follow-up, so we know only that their event time was later than their last visit. Censoring is not missing data; it is information, and survival methods use it explicitly.
+
+The main summary is the **hazard ratio (HR)**. A hazard is the instantaneous rate of the event at a given time among patients still event-free. An HR compares that rate between two arms at the same time. An HR of 1 means no difference; an HR below 1 means the treatment arm has a lower event rate. An HR of `r fmt(cox_adj$hr, 2)` means that, at any given time after surgery, the Lev+5FU arm had about `r fmt(100 * (1 - cox_adj$hr), 0)`% lower instantaneous risk of death than observation. We also report **median survival** (the time by which half the arm has died) and **5-year survival** (the probability of being alive at 60 months). A median of "not reached" means more than half of that arm was still alive at the end of follow-up; it is a good result, not a missing value.
+
+All times are in months. The cohort is the complete-case set used consistently by every model: patients missing a required baseline variable were excluded before analysis and the exclusion is recorded in the data loader.
+
+# Survival by treatment arm
+
+```{r km-figure}
+knitr::include_graphics(fig_path("km_by_arm.png"))
+```
+
+```{r km-table}
+km_table <- km[, c(
+  "arm", "n", "n_events", "median", "median_lower", "median_upper",
+  "surv_60m", "lower_60m", "upper_60m"
+)]
+names(km_table) <- c(
+  "Arm", "n", "Deaths", "Median (months)", "Median lower", "Median upper",
+  "5-year survival", "5-year lower", "5-year upper"
+)
+km_table$`Median (months)` <- ifelse(is.na(km_table$`Median (months)`),
+  "Not reached", fmt(km_table$`Median (months)`, 1)
+)
+km_table$`Median lower` <- ifelse(is.na(km_table$`Median lower`), "",
+  fmt(km_table$`Median lower`, 1)
+)
+km_table$`Median upper` <- ifelse(is.na(km_table$`Median upper`), "",
+  fmt(km_table$`Median upper`, 1)
+)
+km_table$`5-year survival` <- pct(km_table$`5-year survival`)
+km_table$`5-year lower` <- pct(km_table$`5-year lower`)
+km_table$`5-year upper` <- pct(km_table$`5-year upper`)
+knitr::kable(km_table, align = "lrrrrrccc", row.names = FALSE,
+  caption = "Kaplan-Meier summary by arm, death endpoint."
+)
+```
+
+The observation arm had a median survival of **`r months(km_obs$median)`** and 5-year survival of **`r pct(km_obs$surv_60m)`**. The Lev+5FU arm had **`r months(km_5fu$median)`** median survival and 5-year survival of **`r pct(km_5fu$surv_60m)`**, a difference of **`r fmt(100 * survival_gain, 1)` percentage points**. The log-rank test comparing all three arms gave chi-square = `r fmt(logrank_chisq, 2)` on `r km$logrank_df[1]` degrees of freedom and p = **`r fmt_p(logrank_p)`**. The curves separate early and remain apart, which is why the treatment effect is not simply a late follow-up artefact.
+
+# Adjusted treatment effect
+
+```{r cox-table}
+cox_table <- cox[cox$term %in% c("rxLev", "rxLev+5FU"), c(
+  "model", "label", "hr", "conf.low", "conf.high", "p.value"
+)]
+names(cox_table) <- c("Model", "Contrast", "HR", "95% CI low", "95% CI high", "p-value")
+cox_table$HR <- fmt(cox_table$HR, 2)
+cox_table$`95% CI low` <- fmt(cox_table$`95% CI low`, 2)
+cox_table$`95% CI high` <- fmt(cox_table$`95% CI high`, 2)
+cox_table$`p-value` <- vapply(cox_table$`p-value`, fmt_p, character(1))
+knitr::kable(cox_table, row.names = FALSE, caption = "Cox proportional hazards estimates for the treatment contrasts.")
+```
+
+The unadjusted hazard ratio for Lev+5FU versus observation was **`r fmt(cox_un$hr, 2)` (95% CI `r fmt(cox_un$conf.low, 2)` to `r fmt(cox_un$conf.high, 2)`)**, and the covariate-adjusted hazard ratio was **`r fmt(cox_adj$hr, 2)` (95% CI `r fmt(cox_adj$conf.low, 2)` to `r fmt(cox_adj$conf.high, 2)`, p = `r fmt_p(cox_adj$p.value)`)**. **Interpretation:** after accounting for age, sex, nodal involvement, extent of disease, differentiation and obstruction, patients receiving Lev+5FU had about **`r fmt(100 * (1 - cox_adj$hr), 0)`% lower instantaneous risk of death** than patients on observation, and the confidence interval excludes no effect. Levamisole alone was not clearly different from observation (adjusted HR `r fmt(cox_lev$hr, 2)`, 95% CI `r fmt(cox_lev$conf.low, 2)` to `r fmt(cox_lev$conf.high, 2)`).
+
+The adjusted model is the primary frequentist estimate because the trial population differed on important prognostic factors. The held-out C-index for this model was **`r fmt(conc$c_index[conc$model == "adjusted"], 3)`** (95% CI `r fmt(conc$conf.low[conc$model == "adjusted"], 3)` to `r fmt(conc$conf.high[conc$model == "adjusted"], 3)`) on the 30% test set, compared with `r fmt(conc$c_index[conc$model == "unadjusted"], 3)` for the unadjusted model. A C-index of 0.65 means the model discriminates moderately well between patients who die sooner and later, not that it is a perfect prediction tool.
+
+# Does the proportional hazards assumption hold?
+
+The Cox model assumes that the hazard ratio is constant over time. The **Schoenfeld residual test** checks this: a small p-value is evidence that an effect changes over time. The global test here gave chi-square = **`r fmt(ph_global$statistic, 2)`** with p = **`r fmt_p(ph_global$p_value)`**, so the proportional hazards assumption is not globally satisfied. The treatment term for Lev+5FU itself gave p = **`r fmt_p(ph_treat$p_value)`**, which does **not** show a time-varying treatment effect. The violations are concentrated in other covariates: `r paste(ph_viol$term, collapse = ", ")`.
+
+```{r schoenfeld-figure}
+knitr::include_graphics(fig_path("schoenfeld.png"))
+```
+
+**What this means for trust.** The Lev+5FU hazard ratio is the best single-number summary of the treatment effect and is supported by both the frequentist and Bayesian analyses, but the global test says the full Cox model is an imperfect description of the data. A non-significant treatment-specific test is reassuring; it does not prove that the treatment effect is constant. The next trial should pre-specify a time-varying or restricted-mean-survival sensitivity analysis, and the report should not present the HR as if it captures the entire survival curve. This is the main statistical reason the recommendation is conditional rather than an unqualified GO.
+
+# Bayesian subgroup analysis and partial borrowing
+
+The Bayesian model fits a Weibull proportional hazards model with a hierarchical random effect for the Lev+5FU effect across four nodal-risk strata: 0-1, 2-3, 4-7 and 8+ positive lymph nodes. Each stratum's log hazard ratio is shrunk toward the global Lev+5FU effect through a half-normal prior with scale 0.5. This is **partial borrowing**: strata with more events and more information keep most of their own estimate; small or unstable strata are pulled toward the overall effect rather than being reported as if they were independent studies. The model adjusted for age, sex, extent, differentiation and obstruction, and handled censoring through the Weibull likelihood.
+
+```{r forest-figure}
+knitr::include_graphics(fig_path("posterior_hr.png"))
+```
+
+```{r bayes-table}
+bayes_table <- f5_sub[, c("parameter", "mean", "q2.5", "q97.5", "rhat", "ess_bulk")]
+names(bayes_table) <- c("Parameter", "Posterior mean HR", "95% CrI low", "95% CrI high", "R-hat", "Bulk ESS")
+bayes_table$Parameter <- c(
+  "Nodes 0-1", "Nodes 2-3", "Nodes 4-7", "Nodes 8+"
+)[match(bayes_table$Parameter, paste0("hr_f5_", c("n01", "n23", "n47", "n8p")))]
+bayes_table$`Posterior mean HR` <- fmt(bayes_table$`Posterior mean HR`, 2)
+bayes_table$`95% CrI low` <- fmt(bayes_table$`95% CrI low`, 2)
+bayes_table$`95% CrI high` <- fmt(bayes_table$`95% CrI high`, 2)
+bayes_table$`R-hat` <- fmt(bayes_table$`R-hat`, 3)
+bayes_table$`Bulk ESS` <- count(bayes_table$`Bulk ESS`)
+knitr::kable(bayes_table, row.names = FALSE, caption = "Partially pooled Lev+5FU hazard ratios by nodal-risk stratum.")
+```
+
+The global posterior mean hazard ratio was **`r fmt(f5_global$mean, 2)` (95% CrI `r fmt(f5_global$q2.5, 2)` to `r fmt(f5_global$q97.5, 2)`)**, and the stratum-specific estimates ranged from **`r fmt(min(f5_sub$mean), 2)` to `r fmt(max(f5_sub$mean), 2)`**. Every subgroup estimate is below 1 in point estimate; the upper credible limits are close to or slightly above 1 in the smaller strata, which is exactly what borrowing is meant to communicate honestly.
+
+```{r shrinkage-table}
+shrink_table <- shrink[, c(
+  "stratum", "n", "n_events", "standalone_hr", "pooled_hr",
+  "shrinkage_abs", "pct_width_reduction"
+)]
+shrink_table$stratum <- c(
+  "Nodes 0-1", "Nodes 2-3", "Nodes 4-7", "Nodes 8+"
+)[match(shrink_table$stratum, c("n01", "n23", "n47", "n8p"))]
+names(shrink_table) <- c(
+  "Stratum", "n", "Deaths", "Standalone HR", "Pooled HR",
+  "Absolute movement (log scale)", "Interval width reduction"
+)
+shrink_table$`Standalone HR` <- fmt(shrink_table$`Standalone HR`, 2)
+shrink_table$`Pooled HR` <- fmt(shrink_table$`Pooled HR`, 2)
+shrink_table$`Absolute movement (log scale)` <- fmt(shrink_table$`Absolute movement (log scale)`, 3)
+shrink_table$`Interval width reduction` <- paste0(fmt(shrink_table$`Interval width reduction`, 1), "%")
+knitr::kable(shrink_table, row.names = FALSE, caption = "How far each stratum estimate moved toward the global effect.")
+```
+
+The interval width fell by **`r fmt(min(shrink$pct_width_reduction), 1)`% to `r fmt(max(shrink$pct_width_reduction), 1)`%** after borrowing. The absolute movement was largest in the 8+ node stratum (`r fmt(shrink$shrinkage_abs[shrink$stratum == "n8p"], 3)` on the log-HR scale), the smallest subgroup (`r shrink$n[shrink$stratum == "n8p"]` patients). In the 2-3 node stratum the standalone estimate was already essentially the global effect, so the percentage movement is unstable and slightly negative; the absolute movement is only `r fmt(shrink$shrinkage_abs[shrink$stratum == "n23"], 3)` and the interval still narrowed by `r fmt(shrink$pct_width_reduction[shrink$stratum == "n23"], 1)`%. The Bayesian fit converged with maximum R-hat **`r fmt(conv$max_rhat[1], 4)`**, minimum bulk ESS **`r count(conv$min_ess_bulk[1])`**, and **`r conv$n_divergent[1]` divergent transitions** (backend: `r conv$backend[1]`). Trace plots are available in `figures/trace.png`.
+
+# Frequentist versus Bayesian comparison
+
+```{r comparison-table}
+cmp_table <- cmp[, c(
+  "model", "estimate", "conf.low", "conf.high", "interval_width",
+  "c_index", "c_index_low", "c_index_high", "waic"
+)]
+names(cmp_table) <- c(
+  "Model", "HR", "Interval low", "Interval high", "Interval width",
+  "Held-out C-index", "C-index low", "C-index high", "WAIC"
+)
+cmp_table$Model <- c("Frequentist (adjusted Cox)", "Bayesian (hierarchical Weibull)")
+cmp_table$HR <- fmt(cmp_table$HR, 2)
+cmp_table$`Interval low` <- fmt(cmp_table$`Interval low`, 2)
+cmp_table$`Interval high` <- fmt(cmp_table$`Interval high`, 2)
+cmp_table$`Interval width` <- fmt(cmp_table$`Interval width`, 2)
+cmp_table$`Held-out C-index` <- fmt(cmp_table$`Held-out C-index`, 3)
+cmp_table$`C-index low` <- fmt(cmp_table$`C-index low`, 3)
+cmp_table$`C-index high` <- fmt(cmp_table$`C-index high`, 3)
+cmp_table$WAIC <- ifelse(is.na(cmp_table$WAIC), "Not available", fmt(cmp_table$WAIC, 1))
+knitr::kable(cmp_table, row.names = FALSE, caption = "Frequentist and Bayesian treatment-effect summaries on the same test set.")
+```
+
+The two approaches agree on the direction and approximate size of the effect. The frequentist adjusted HR is **`r fmt(cmp_f$estimate, 2)` (95% CI `r fmt(cmp_f$conf.low, 2)` to `r fmt(cmp_f$conf.high, 2)`, width `r fmt(cmp_f$interval_width, 2)`)**; the Bayesian global HR is **`r fmt(cmp_b$estimate, 2)` (95% CrI `r fmt(cmp_b$conf.low, 2)` to `r fmt(cmp_b$conf.high, 2)`, width `r fmt(cmp_b$interval_width, 2)`)**. The Bayesian interval is wider, which is appropriate: it includes the hierarchical uncertainty about how much the nodal strata differ. Held-out discrimination was essentially identical (**`r fmt(cmp_f$c_index, 3)` vs `r fmt(cmp_b$c_index, 3)`**). The Bayesian WAIC was **`r fmt(cmp_b$waic, 1)`**; WAIC is a relative model-fit score, not a hypothesis test, and it is reported here only for completeness.
+
+# How big does the next trial need to be?
+
+The simulation engine randomises patients under uniform accrual, exponential control survival with a 60-month median, a proportional treatment effect, administrative censoring at 24 months of accrual plus 60 months of follow-up, and independent dropout. Each design cell uses 1,000 simulated trials. Rejection rates at HR = 1 estimate the type I error rate; at HR < 1 they estimate power.
+
+```{r power-table}
+req_table <- req[, c(
+  "hr", "dropout_rate", "n_simulated", "power_at_simulated",
+  "n_schoenfeld", "ratio_sim_over_schoenfeld"
+)]
+names(req_table) <- c(
+  "HR", "Dropout", "Simulated n per arm", "Power at that n",
+  "Schoenfeld n per arm", "Simulated / Schoenfeld"
+)
+req_table$Dropout <- paste0(fmt(100 * req_table$Dropout, 0), "%")
+req_table$`Power at that n` <- pct(req_table$`Power at that n`, 0)
+req_table$`Simulated / Schoenfeld` <- fmt(req_table$`Simulated / Schoenfeld`, 2)
+knitr::kable(req_table, row.names = FALSE, caption = "Per-arm sample size required for 80% power (target HR 0.8 and 0.7).")
+```
+
+For a future trial targeting **HR = 0.7 with 20% dropout**, the simulation first reached 80% power at **`r req_07_20$n_simulated` patients per arm** (observed power `r pct(req_07_20$power_at_simulated, 0)`); the Schoenfeld calculation gives **`r req_07_20$n_schoenfeld` per arm** (ratio `r fmt(req_07_20$ratio_sim_over_schoenfeld, 2)`). For **HR = 0.8 with 20% dropout**, the corresponding numbers are **`r req_08_20$n_simulated`** and **`r req_08_20$n_schoenfeld` per arm**. Without dropout, the requirement is **`r req_07_00$n_simulated`** per arm at HR = 0.7 and **`r req_08_00$n_simulated`** at HR = 0.8. The simulated requirement was `r fmt(100 * (min(req$ratio_sim_over_schoenfeld) - 1), 0)`% to `r fmt(100 * (max(req$ratio_sim_over_schoenfeld) - 1), 0)`% higher than the Schoenfeld analytic size, which is a useful reality check but not a substitute for a trial-specific design.
+
+```{r power-figure}
+knitr::include_graphics(fig_path("power_curves.png"))
+```
+
+At HR = 1, the pooled empirical type I error was **`r pct(type1_pool$rejection_rate, 2)` (95% MC interval `r pct(type1_pool$mc_lower, 2)` to `r pct(type1_pool$mc_upper, 2)`)** across **`r count(type1_pool$n_sims)`** null simulations, consistent with the nominal 5%. The total simulation run comprised **`r count(sim_meta$total_simulations[1])`** simulated trials in **`r fmt(sim_meta$runtime_total_sec[1] / 60, 1)` minutes** on `r sim_meta$cores[1]` cores.
+
+# Recommendation
+
+::: {.callout-important appearance="default"}
+## Recommendation: `r recommendation`
+
+**The three numbers driving this decision**
+
+1. **Adjusted hazard ratio `r fmt(cox_adj$hr, 2)` (95% CI `r fmt(cox_adj$conf.low, 2)` to `r fmt(cox_adj$conf.high, 2)`)** for Lev+5FU versus observation, with a Bayesian global HR of `r fmt(f5_global$mean, 2)` (95% CrI `r fmt(f5_global$q2.5, 2)` to `r fmt(f5_global$q97.5, 2)`).
+2. **5-year survival `r pct(km_5fu$surv_60m)` versus `r pct(km_obs$surv_60m)`**, an `r fmt(100 * survival_gain, 1)` percentage-point absolute gain (log-rank p = `r fmt_p(logrank_p)`).
+3. **About `r req_07_20$n_simulated` patients per arm** for 80% power at HR = 0.7 with 20% dropout (Schoenfeld `r req_07_20$n_schoenfeld`), so the next trial must be sized in the hundreds per arm, not dozens.
+
+**The three main caveats**
+
+1. **Proportional hazards is not globally satisfied** (global cox.zph p = `r fmt_p(ph_global$p_value)`; violations in `r paste(ph_viol$term, collapse = ", ")`). The treatment-specific test is not significant, but the constant-HR summary should be paired with a time-varying or restricted-mean-survival sensitivity analysis.
+2. **The Bayesian subgroup intervals remain wide**, especially in the 8+ node stratum (`r shrink$n[shrink$stratum == "n8p"]` patients), and the borrowing is deliberately modest. Subgroup estimates should guide future stratification, not be used as definitive claims.
+3. **The design simulation assumes exponential survival, proportional hazards, non-informative dropout, and no competing risks**, and the evidence comes from one historical trial. The next trial should pre-specify its analysis, include a PH-robust primary or sensitivity analysis, and use the simulation-based sample size rather than a single formula.
+:::
+
+# Traceability
+
+Every number in this report is read from an artifact produced by the analysis scripts; the report never refits a model. The sources are:
+
+- `results/cohort_summary.csv`, `results/km_summary.csv`, `results/cox_hazard_ratios.csv`, `results/ph_diagnostics.csv`, `results/concordance_frequentist.csv` (frequentist analysis);
+- `results/bayes_posterior_summary.csv`, `results/shrinkage_report.csv`, `results/model_comparison.csv`, `results/bayes_convergence.csv` (Bayesian analysis);
+- `results/power_curve.csv`, `results/type1_error.csv`, `results/sample_size_vs_schoenfeld.csv`, `results/simulation_meta.csv` (design simulation);
+- `figures/km_by_arm.png`, `figures/schoenfeld.png`, `figures/posterior_hr.png`, `figures/power_curves.png`.
+
+The analysis was run with R `r paste(R.version$major, R.version$minor, sep = ".")` and the Bayesian fit used the **`r conv$backend[1]`** backend (`brms` with `rstan`). The full pipeline is reproducible with `Rscript scripts/run_all.R`; the exact package versions are in `results/session_info.txt` after a pipeline run.
